@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<head>
+	<meta name="description" content="Anda bisa upload file/gambar anda dengan cepat tanpa harus membeli cloud.">
+		<link rel="icon" href="myfiles/images.png" type="image/png">
+  <title>Cloud Faiz | Upload your Files</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f4f9;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      color: #007bff;
+      margin-bottom: 20px;
+    }
+
+    #file-manager {
+      margin-top: 20px;
+      padding: 10px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #back-button {
+      display: none;
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-bottom: 20px;
+    }
+
+    .file, .folder {
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+    }
+
+    .folder {
+      font-weight: bold;
+      color: #007bff;
+      cursor: pointer;
+      background: #eaf4ff;
+    }
+
+    .file {
+      color: #555;
+      background: #f9f9f9;
+    }
+
+    .file a, .folder a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .file i, .folder i {
+      margin-right: 8px;
+    }
+
+    #upload-container {
+      margin-top: 20px;
+      text-align: center;
+      padding: 10px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #upload-container h3 {
+      margin-bottom: 10px;
+    }
+
+    #upload-file {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    #upload-button {
+      padding: 10px 20px;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    #upload-button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1><i class="fa-solid fa-server"></i> Cloud Faiz</h1>
+  <div id="back-button"><i class="fa-solid fa-arrow-left"></i>Back</div>
+  <div id="file-manager">Loading...</div>
+
+  <div id="upload-container">
+    <h3><i class="fa-solid fa-upload"></i> Upload File</h3>
+    <input type="file" id="upload-file" />
+    <button id="upload-button"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+  </div>
+
+  <script>
+    const username = "aistore0"; // Ganti dengan username GitHub kamu
+    const repo = "myimg"; // Ganti dengan nama repositori kamu
+    const branch = "main"; // Ganti dengan branch yang ingin diakses
+    const token = "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"; // Masukkan token secret kamu
+    let currentPath = "myfiles"; // Untuk menyimpan path saat ini
+    const allowedUploadFolder = "myfiles"; // Folder yang diperbolehkan untuk upload
+
+    async function fetchFiles(path = "") {
+      currentPath = path;
+      const url = `https://api.github.com/repos/${username}/${repo}/contents/${path}?ref=${branch}`;
+      const response = await fetch(url, {
+        headers: { Authorization: `token ${token}` }
+      });
+      const files = await response.json();
+      const fileManager = document.getElementById("file-manager");
+      const backButton = document.getElementById("back-button");
+      
+      fileManager.innerHTML = "";
+
+      if (currentPath !== "") {
+        backButton.style.display = "block";
+      } else {
+        backButton.style.display = "none";
+      }
+
+      files.forEach(file => {
+        // Menyaring file .html untuk tidak ditampilkan
+        if (file.name.endsWith(".html")) return;
+
+        const element = document.createElement("div");
+        element.className = file.type === "dir" ? "folder" : "file";
+        element.innerHTML = `
+          <i class="fa-solid ${file.type === "dir" ? "fa-folder" : "fa-file"}"></i>
+          <a href="${file.download_url || `#`}" target="_blank">${file.name}</a>
+        `;
+
+        if (file.type === "dir") {
+          element.addEventListener("click", (e) => {
+            e.preventDefault();
+            fetchFiles(file.path)
+          });
+        }
+
+        fileManager.appendChild(element);
+      });
+    }
+
+    document.getElementById("back-button").addEventListener("click", () => {
+      fetchFiles();
+    });
+
+    document.getElementById("upload-button").addEventListener("click", async () => {
+      const fileInput = document.getElementById("upload-file");
+      const file = fileInput.files[0];
+
+      if (!file) {
+        alert("Pilih file yang ingin diupload!");
+        return;
+      }
+
+      // Validasi hanya untuk folder 'myfiles/'
+      if (!currentPath.startsWith(allowedUploadFolder)) {
+        alert(`Hanya folder "${allowedUploadFolder}" yang diperbolehkan untuk upload!`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const content = btoa(reader.result);
+        const uploadPath = currentPath + "/" + file.name; // File akan ditempatkan dalam folder yang sedang aktif
+        
+        const url = `https://api.github.com/repos/${username}/${repo}/contents/${uploadPath}`;
+        
+        const response = await fetch(url, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: `Upload file ${file.name}`,
+            content: content,
+            branch: branch
+          })
+        });
+
+        if (response.ok) {
+          alert("File berhasil diupload!");
+          fetchFiles(currentPath);
+        } else {
+          alert("Gagal mengupload file!");
+        }
+      };
+
+      reader.readAsBinaryString(file);
+    });
+
+    fetchFiles()
+  </script>
+</body>
+</html>
